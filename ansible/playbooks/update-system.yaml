@@ -1,0 +1,55 @@
+---
+- name: Update OS
+  gather_facts: false
+  become: true
+  hosts: all
+  tasks:
+  - name: Upgrade all packages on servers
+    yum:
+      name: '*'
+      state: latest
+
+  - name: sysctl set vm.max_map_count value for production
+    sysctl:
+      name: vm.max_map_count
+      value: '262144'
+      sysctl_set: yes
+      state: present
+      reload: yes
+
+- name: Setup PIP
+  gather_facts: false
+  become: true
+  hosts: all
+  tasks:
+  - name: Insure PIP is installed
+    yum:
+      name: 'python3-pip'
+      state: latest
+  
+  - name: PIP upgrade to latest
+    become: true
+    pip:
+      name: pip
+      state: latest
+      extra_args: --upgrade
+
+  - name: PIP user permissions
+    pip:
+      name: pip
+      extra_args: --user
+
+- name: Setup FirewallD
+  become: true
+  hosts: all
+  tasks:
+  - name: FirewallD Installed
+    yum: 
+      name: firewalld 
+      state: latest
+
+  - name: start FirewallD
+    service: 
+      name: firewalld 
+      state: started
+      enabled: yes

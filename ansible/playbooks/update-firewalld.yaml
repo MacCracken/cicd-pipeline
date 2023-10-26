@@ -1,0 +1,32 @@
+---
+- name: FirewallD
+  become: true
+  hosts: all
+  tasks:
+  - name: FirewallD rules
+    firewalld:
+      permanent: yes
+      immediate: yes
+      service: "{{ item }}"
+      state: enabled
+      zone: public
+    with_items:
+      - http
+      - https
+
+  #- name: FirewallD rules
+  #  firewalld:
+  #    permanent: yes
+  #    immediate: yes
+  #    port: "{{ item }}"
+  #    state: enabled
+  #    zone: public
+  # with_items:
+  #    - 8080/tcp
+  #    - 8081/tcp
+  #    - 8082/tcp
+
+  - name: FirewallD Reload
+    systemd:
+      name: firewalld
+      state: reloaded

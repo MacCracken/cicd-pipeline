@@ -1,0 +1,27 @@
+---
+- gather_facts: false
+  hosts: all
+  name: Build Docker Containers
+  tasks:
+    - name: Get host variables
+      include_vars:
+        dir: ../host_vars
+        files_matching: host.yaml
+        name: host
+
+    - name: Check Image Count
+      shell:
+        cmd: docker images -q | wc -l
+      register: images_count
+
+    - name: Get compose Service names
+      shell:
+        cmd: docker compose config --services
+      register: services
+
+    - name: Pulling Containers (* will take a while; depending on internet speed)
+      shell: 
+        cmd: "docker compose pull {{ item }}"
+        chdir: /opt/vdi
+      with_items:
+        - "{{ services.stdout.split('\n') | sort }}"

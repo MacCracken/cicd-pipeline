@@ -1,0 +1,36 @@
+---
+- name: data directories
+  hosts: all
+  become: true
+  tasks:
+  - name: Get host variables
+    include_vars:
+      dir: ../host_vars
+      files_matching: host.yaml
+      name: host
+
+  - name: Remove any previous data
+    file:
+      path: "{{ host.DATA_DIRECTORY }}/{{ item }}"
+      state: absent
+    with_items:
+      - "lost+found"
+      - "nexus"
+      - "postgres"
+      - "jenkins"
+      - "sonarqube"
+      - "gitlab"
+      - "dashy"
+
+  - name: Create
+    file:
+      path: "{{ host.DATA_DIRECTORY }}/{{ item }}"
+      state: directory
+      recurse: yes
+    with_items:
+      - "nexus"
+      - "postgres"
+      - "jenkins"
+      - "sonarqube"
+      - "gitlab"
+      - "dashy"

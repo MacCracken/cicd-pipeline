@@ -1,0 +1,7 @@
+---
+- import_playbook: update-system.yaml
+- import_playbook: install-docker.yaml
+- import_playbook: update-firewalld.yaml
+- import_playbook: create-data-directories.yaml
+- import_playbook: build-containers.yaml
+- import_playbook: start-services.yaml

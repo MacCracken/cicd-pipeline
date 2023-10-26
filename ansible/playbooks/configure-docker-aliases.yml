@@ -1,0 +1,111 @@
+---
+- name: docker aliases
+  hosts: all
+  become: true
+  vars:
+    swarm: false
+  
+  tasks:	
+  - name: Add alias compose = docker compose for root user
+    lineinfile:
+      path: /root/.bashrc
+      line: "alias compose='docker compose'"
+      owner: root
+      regexp: "^alias compose='docker compose'$"
+      state: present
+      insertafter: EOF
+      create: true
+
+  - name: Add alias stack = docker stack for root user
+    lineinfile:
+      path: /root/.bashrc
+      line: "alias stack='docker stack'"
+      owner: root
+      regexp: "^alias stack='docker stack'$"
+      state: present
+      insertafter: EOF
+      create: True
+    when: swarm == true
+
+  # - name: Add alias stack-deploy = docker stack deploy for root user
+  #   lineinfile:
+  #     path: /root/.bashrc
+  #     line: "alias stack-deploy='docker stack deploy -c /opt/vdi/third-party/elk/stack.yml'"
+  #     owner: root
+  #     regexp: "^alias stack-deploy='docker stack deploy -c /opt/vdi/third-party/elk/stack.yml'$"
+  #     state: present
+  #     insertafter: EOF
+  #     create: True
+  #   when: swarm == true
+      
+  # - name: Add alias stack-logs = docker service logs for root user
+  #   lineinfile:
+  #     path: /root/.bashrc
+  #     line: "alias stack-logs='docker service logs -f'"
+  #     owner: root
+  #     regexp: "^alias stack-logs='docker service logs -f'$"
+  #     state: present
+  #     insertafter: EOF
+  #     create: True
+  #   when: swarm == true
+
+  - name: check if vagrant user is present
+    shell: "less /etc/passwd | grep vagrant"
+    register: vagrant_user_present
+    failed_when: 
+      - vagrant_user_present.rc > 2
+
+  - name: Add alias compose = docker compose for vagrant user
+    lineinfile:
+      path: /home/vagrant/.bashrc
+      line: "alias compose='docker compose'"
+      owner: vagrant
+      regexp: "^alias compose='docker compose'$"
+      state: present
+      insertafter: EOF
+      create: True
+    when: 
+      - vagrant_user_present.rc == 0
+      - vagrant_user_present.stdout | length > 0
+    
+  - name: Add alias stack = docker stack for vagrant user
+    lineinfile:
+      path: /home/vagrant/.bashrc
+      line: "alias stack='docker stack'"
+      owner: vagrant
+      regexp: "^alias stack='docker stack'$"
+      state: present
+      insertafter: EOF
+      create: True
+    when: 
+      - vagrant_user_present.rc == 0
+      - vagrant_user_present.stdout | length > 0
+      - swarm == true
+
+  # - name: Add alias stack-deploy = docker stack deploy for vagrant user
+  #   lineinfile:
+  #     path: /home/vagrant/.bashrc
+  #     line: "alias stack-deploy='docker stack deploy -c /opt/vdi/third-party/elk/stack.yml'"
+  #     owner: vagrant
+  #     regexp: "^alias stack-deploy='docker stack deploy -c /opt/vdi/third-party/elk/stack.yml'$"
+  #     state: present
+  #     insertafter: EOF
+  #     create: True
+  #   when: 
+  #     - vagrant_user_present.rc == 0
+  #     - vagrant_user_present.stdout | length > 0
+  #     - swarm == true
+
+  # - name: Add alias stack-logs = docker service logs for vagrant user
+  #   lineinfile:
+  #     path: /home/vagrant/.bashrc
+  #     line: "alias stack-logs='docker service logs -f'"
+  #     owner: vagrant
+  #     regexp: "^alias stack-logs='docker service logs -f'$"
+  #     state: present
+  #     insertafter: EOF
+  #     create: True
+  #   when: 
+  #     - vagrant_user_present.rc == 0
+  #     - vagrant_user_present.stdout | length > 0
+  #     - swarm == true

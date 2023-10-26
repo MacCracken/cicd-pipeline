@@ -1,0 +1,38 @@
+---
+- name: Create Data Disk
+  gather_facts: false
+  become: true
+  hosts: all
+  tasks:
+  - name: Get host variables
+    include_vars:
+      dir: ../host_vars
+      files_matching: host.yaml
+      name: host
+
+  - name: /dev/sdb Partition
+    parted:
+      device: /dev/sdb
+      number: 1
+      flags: [ lvm ]
+      state: present
+
+  - name: /dev/sdb1 Format
+    filesystem:
+      fstype: ext4
+      dev: /dev/sdb1
+
+  - name: "mount data dir to /dev/sdb"
+    mount:
+      fstype: ext4
+      src: /dev/sdb1
+      path: "{{ host.DATA_DIRECTORY }}"
+      state: mounted
+
+  - name: data directory open to vagrant
+    file:
+      path: "{{ host.DATA_DIRECTORY }}"
+      state: directory
+      recurse: yes
+      owner: vagrant
+      group: vagrant

@@ -1,0 +1,46 @@
+---
+- name: Start Container Services
+  gather_facts: false
+  hosts: all
+  become: true
+  tasks:
+    - name: Get host variables
+      include_vars:
+        dir: ../host_vars
+        files_matching: host.yaml
+        name: host
+
+    - name: Start CI-CD Services
+      shell: 
+        cmd: docker compose up -d
+        chdir: "{{ host.PROJECT_PATH }}"
+
+    - name: Wait for Jenkins to startup and provide password
+      wait_for:
+        path: /data/jenkins/secrets/initialAdminPassword
+        state: present
+
+    - name: Jenkins Initial Password
+      shell:
+        cmd: cat /data/jenkins/secrets/initialAdminPassword
+      register: initial_jenkins_password
+
+    - name: Echo Jenkins Initial Admin Password
+      debug:
+        var: initial_jenkins_password
+
+    - name: Wait for Nexus to startup and provide password
+      wait_for:
+        path: /data/nexus/admin
+        state: present
+        delay: 60
+        timeout: 600
+
+    - name: Nexus Initial Password
+      shell:
+        cmd: cat /data/nexus/admin
+      register: initial_nexus_password
+
+    - name: Echo Nexus Initial Admin Password
+      debug:
+        var: initial_nexus_password

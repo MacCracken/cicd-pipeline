@@ -1,0 +1,103 @@
+---
+- name: Install Docker on Rocky Linux
+  hosts: all
+  gather_facts: false
+  become: true
+  tasks:
+  - name: Remove Podman
+    dnf:
+      name:
+        - buildah
+        - skopeo
+        - podman
+        - containers-common
+        - atomic-registries 
+        - docker
+      state: absent
+
+  - name: Delete Previous Container Data
+    file:
+      path: 
+        - /etc/containers/*
+        - /var/lib/containers/* 
+        - /etc/docker
+        - /etc/subuid* 
+        - /etc/subgid*
+      state: absent
+
+  - name: Uninstall old versions
+    dnf:
+      name:
+        - docker-client
+        - docker-client-latest
+        - docker-common
+        - docker-latest
+        - docker-latest-logrotate
+        - docker-logrotate
+        - docker-engine
+      state: absent
+
+  - name: Install utils
+    dnf:
+      name: yum-utils
+      state: latest
+
+  - name: Add Docker GPG RPM Key
+    rpm_key:
+      key: https://download.docker.com/linux/centos/gpg
+      state: present
+
+  - name: Add Docker Repo
+    get_url: 
+      dest: /etc/yum.repos.d/docker-ce.repo
+      url: https://download.docker.com/linux/centos/docker-ce.repo
+
+  - name: Install the latest version of Docker Engine and containerd
+    dnf:
+      name:
+        - docker-ce
+        - docker-ce-cli
+        - docker-compose-plugin
+        - containerd.io
+    notify: Start and enable docker
+
+  - name: Add the current user to the docker group
+    user:
+      name: root
+      groups: docker
+      append: yes
+  
+  - name: check if vagrant user is present
+    shell: "less /etc/passwd | grep vagrant"
+    register: vagrant_user_present
+    failed_when: 
+      - vagrant_user_present.rc > 2
+  
+  - name: Add vagrant user to docker group
+    user:
+      name: vagrant
+      groups: docker
+      append: yes
+    when: 
+      - vagrant_user_present.rc == 0
+      - vagrant_user_present.stdout | length > 0
+
+  - name: add docker deamon file
+    copy:
+      dest: "/etc/docker/daemon.json"
+      content: |
+        { 
+          "builder": {
+            "gc": {
+              "defaultKeepStorage": "20GB",
+              "enabled": true
+            }
+          }
+        }
+
+  handlers:
+  - name: Start and enable docker
+    systemd:
+      name: docker
+      state: started
+      enabled: yes

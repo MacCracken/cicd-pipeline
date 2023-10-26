@@ -1,0 +1,23 @@
+#!/bin/bash
+WORKDIR=$PWD
+FILE=$PWD/.setup_complete
+BORDER="------------------------------------";
+info () { echo -e "$BORDER\n\t$1\n$BORDER"; }
+
+info "CICD SETUP STARTING"
+
+if test -f "$FILE"; then
+    echo -e "SETUP HAS ALREADY BEEN RUN\n$FILE EXISTS"
+    exit 0
+fi
+
+info "INSTALLING ANSIBLE"
+dnf install -y epel-release
+dnf install -y ansible
+
+info "RUNNING PLAYBOOKS"
+ansible-playbook -i inventory playbooks/setup-ci.yaml
+
+cd $WORKDIR || return
+touch .setup_complete
+info "SETUP COMPLETED"

@@ -1,0 +1,201 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    restart: on-failure
+    environment:
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: sonar
+    volumes:
+      - postgresql:/var/lib/postgresql
+      - postgresql_data:/var/lib/postgresql/data
+    networks:
+      - db
+  
+  gitlab:
+    image: 'gitlab/gitlab-ce:latest'
+    restart: always
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://gitlab.dev.local'
+        gitlab_rails['gitlab_shell_ssh_port'] = 2224
+        # Add any other gitlab.rb configuration here, each on its own line
+    ports:
+      - '2224:22'
+    volumes:
+      - gitlab_config:/etc/gitlab
+      - gitlab_logs:/var/log/gitlab
+      - gitlab_data:/var/opt/gitlab
+    labels:
+      traefik.enable: 'true'
+      traefik.http.routers.gitlab.entrypoints: web
+      traefik.http.routers.gitlab.rule: Host(`gitlab.dev.local`)
+      traefik.http.services.gitlab.loadbalancer.server.scheme: http
+      traefik.http.services.gitlab.loadbalancer.server.port: 80
+    shm_size: '256m'
+    networks:
+     - backend
+    
+  jenkins:
+    image: jenkins/jenkins:lts
+    restart: always
+    privileged: true
+    user: root
+    ports:
+     - 50000:50000
+    volumes:
+      - jenkins:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      traefik.enable: 'true'
+      traefik.http.routers.jenkins.entrypoints: web
+      traefik.http.routers.jenkins.rule: Host(`jenkins.dev.local`)
+      traefik.http.services.jenkins.loadbalancer.server.scheme: http
+      traefik.http.services.jenkins.loadbalancer.server.port: 8080
+    networks:
+      - backend
+
+  nexus:
+    image: sonatype/nexus3
+    restart: always
+    volumes:
+      - nexus:/nexus-data:rw
+    labels:
+      traefik.enable: 'true'
+      traefik.http.routers.nexus.entrypoints: web
+      traefik.http.routers.nexus.rule: Host(`nexus.dev.local`)
+      traefik.http.services.nexus.loadbalancer.server.scheme: http
+      traefik.http.services.nexus.loadbalancer.server.port: 8081
+    networks:
+      - backend
+
+  sonarqube:
+    image: sonarqube:10-community
+    restart: always
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://db:5432/sonar
+      SONAR_JDBC_USERNAME: sonar
+      SONAR_JDBC_PASSWORD: sonar
+      SONAR_WEB_PORT: 9000
+      SONAR_CLUSTER_HOSTS: "sonarqube"
+      SONAR_AUTH_JWTBASE64HS256SECRET: "dZ0EB0KxnF++nr5+4vfTCaun/eWbv6gOoXodiAMqcFo="
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+    labels:
+      traefik.enable: 'true'
+      traefik.http.routers.sonarqube.entrypoints: web
+      traefik.http.routers.sonarqube.rule: Host(`sonarqube.dev.local`)
+      traefik.http.services.sonarqube.loadbalancer.server.scheme: http
+      traefik.http.services.sonarqube.loadbalancer.server.port: 9000
+    networks:
+      - db
+      - backend
+    depends_on:
+      - db
+
+  dashy:
+    image: lissy93/dashy:latest
+    restart: always
+    volumes:
+      - /data/dashy/conf.yml:/app/public/conf.yml
+    labels:
+      container.service.name: dashy
+      traefik.enable: 'true'
+      traefik.http.routers.dashy.entrypoints: web
+      traefik.http.routers.dashy.rule: Host(`dashy.dev.local`)
+      traefik.http.services.dashy.loadbalancer.server.scheme: http
+      traefik.http.services.dashy.loadbalancer.server.port: 80
+    networks:
+      - backend
+    
+  traefik:
+    image: traefik:latest
+    restart: always
+    command:
+      - "--providers.docker"
+      - "--api.insecure=true"
+      - "--api.dashboard=true"
+      - "--entryPoints.web.address=:80"
+      - "--entryPoints.websecure.address=:443"
+      - "--providers.docker.network=backend"
+      - "--providers.docker.exposedbydefault=false"
+    # configs:
+    #   - source: traefik_conf
+    #     target: /etc/traefik/traefik.yml
+    #   - source: traefik_tls
+    #     target: /etc/traefik/dynamic/traefik-tls.yml
+    ports:
+      - target: 80
+        published: 80
+        protocol: tcp
+        mode: host
+      - target: 443
+        published: 443
+        protocol: tcp
+        mode: host
+      - target: 8080
+        published: 8080
+        protocol: tcp
+        mode: ingress # traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - backend
+      - public
+    labels:
+      container.service.name: traefik
+      traefik.enable: 'true'
+      traefik.http.routers.traefik.entrypoints: web
+      traefik.http.routers.traefik.rule: Host(`traefik.dev.local`)
+      traefik.http.routers.traefik.service: api@internal
+      traefik.http.services.traefik.loadbalancer.server.scheme: http
+      traefik.http.services.traefik.loadbalancer.server.port: 8080
+
+networks:
+  db:
+    external: false
+  backend:
+    external: false
+  public:
+    driver: bridge
+
+volumes:
+  jenkins:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: /data/jenkins
+  nexus:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: /data/nexus
+  sonarqube_extensions:
+  sonarqube_logs:
+  sonarqube_data:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: /data/sonarqube
+  postgresql:
+  postgresql_data:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: /data/postgres
+  gitlab_config:
+  gitlab_logs:
+  gitlab_data:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: /data/gitlab
+
